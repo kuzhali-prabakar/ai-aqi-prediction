@@ -4,7 +4,6 @@ import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
 
-
 # ============================================================
 # PAGE CONFIGURATION
 # ============================================================
@@ -15,23 +14,22 @@ st.set_page_config(
     layout="wide"
 )
 
-
 # ============================================================
-# LOAD MODELS
+# LOAD AQI MODEL
 # ============================================================
 
 @st.cache_resource
-def load_models():
+def load_model():
+    return joblib.load("aqi_prediction_model.pkl")
 
-    model = joblib.load(
-        "aqi_prediction_model.pkl"
-    )
 
-    forecast_model = joblib.load(
-        "aqi_forecasting_model.pkl"
-    )
+# ============================================================
+# LOAD FORECAST MODEL
+# ============================================================
 
-    return model, forecast_model
+@st.cache_resource
+def load_forecast_model():
+    return joblib.load("aqi_forecasting_model.pkl")
 
 
 # ============================================================
@@ -41,9 +39,7 @@ def load_models():
 @st.cache_data
 def load_data():
 
-    df = pd.read_csv(
-        "AQI_ML_Dataset.csv"
-    )
+    df = pd.read_csv("AQI_ML_Dataset.csv")
 
     df["AQI"] = pd.to_numeric(
         df["AQI"],
@@ -57,10 +53,8 @@ def load_data():
     return df
 
 
-# Load models and dataset
-
-model, forecast_model = load_models()
-
+model = load_model()
+forecast_model = load_forecast_model()
 df = load_data()
 
 
@@ -69,6 +63,8 @@ df = load_data()
 # ============================================================
 
 def get_category(aqi):
+
+    aqi = float(aqi)
 
     if aqi <= 50:
         return "Good"
@@ -96,60 +92,38 @@ def get_category(aqi):
 def get_advisory(aqi):
 
     if aqi <= 50:
-
-        return (
-            "Air quality is good. "
-            "Normal outdoor activities are generally safe."
-        )
+        return "Air quality is good. Normal outdoor activities are generally safe."
 
     elif aqi <= 100:
-
-        return (
-            "Air quality is satisfactory. "
-            "Sensitive people should monitor conditions."
-        )
+        return "Air quality is satisfactory. Sensitive people should monitor conditions."
 
     elif aqi <= 200:
-
-        return (
-            "Sensitive individuals should "
-            "reduce prolonged outdoor exposure."
-        )
+        return "Sensitive individuals should reduce prolonged outdoor exposure."
 
     elif aqi <= 300:
-
-        return (
-            "Reduce prolonged outdoor activities."
-        )
+        return "Reduce prolonged outdoor activities."
 
     elif aqi <= 400:
-
-        return (
-            "Avoid prolonged outdoor exposure."
-        )
+        return "Avoid prolonged outdoor exposure."
 
     else:
-
-        return (
-            "Avoid outdoor exposure as much as possible."
-        )
+        return "Avoid outdoor exposure as much as possible."
 
 
 # ============================================================
 # TITLE
 # ============================================================
 
-st.title(
-    "🌍 AI Environmental Intelligence System"
-)
+st.title("🌍 AI Environmental Intelligence System")
 
 st.subheader(
     "AI-Based Air Quality Index Prediction and Forecasting"
 )
 
 st.write(
-    "Enter environmental conditions below and click "
-    "**🔮 Predict AQI** to calculate the results."
+    "Change the environmental values and click "
+    "**🔮 Predict AQI**. The AQI, category, advisory and "
+    "prediction graph will update."
 )
 
 st.divider()
@@ -159,19 +133,14 @@ st.divider()
 # SIDEBAR
 # ============================================================
 
-st.sidebar.header(
-    "📍 Location"
-)
+st.sidebar.header("📍 Location")
 
 location = st.sidebar.text_input(
     "Area / City",
     value="Perundurai"
 )
 
-
-st.sidebar.header(
-    "🌫️ Environmental Parameters"
-)
+st.sidebar.header("🌫️ Environmental Parameters")
 
 
 # ============================================================
@@ -279,7 +248,7 @@ predict_button = st.sidebar.button(
 
 
 # ============================================================
-# CREATE MODEL INPUT
+# CREATE INPUT DATA
 # ============================================================
 
 input_data = pd.DataFrame(
@@ -321,73 +290,68 @@ if predict_button:
     try:
 
         # ----------------------------------------------------
-        # CURRENT AQI
+        # RANDOM FOREST AQI PREDICTION
         # ----------------------------------------------------
 
-        current_aqi = float(
-            model.predict(
-                input_data
-            )[0]
-        )
+        predicted_aqi = model.predict(
+            input_data
+        )[0]
 
+        current_aqi = float(predicted_aqi)
+
+        # Prevent negative AQI
         current_aqi = max(
             0.0,
             current_aqi
         )
 
-
         # ----------------------------------------------------
-        # CURRENT CATEGORY
+        # CATEGORY
         # ----------------------------------------------------
 
         current_category = get_category(
             current_aqi
         )
 
-
         # ----------------------------------------------------
-        # HEALTH ADVISORY
+        # ADVISORY
         # ----------------------------------------------------
 
         advisory = get_advisory(
             current_aqi
         )
 
-
-        # ----------------------------------------------------
-        # FUTURE FORECAST INPUT
-        # ----------------------------------------------------
-
-        aqi = df["AQI"]
-
-        future_input = pd.DataFrame(
-            [[
-                current_aqi,
-
-                float(aqi.iloc[-1]),
-
-                float(aqi.iloc[-2]),
-
-                float(aqi.iloc[-5]),
-
-                float(aqi.iloc[-11]),
-
-                float(aqi.iloc[-23])
-            ]],
-            columns=[
-                "AQI_Lag_1",
-                "AQI_Lag_2",
-                "AQI_Lag_3",
-                "AQI_Lag_6",
-                "AQI_Lag_12",
-                "AQI_Lag_24"
-            ]
-        )
-
-
         # ----------------------------------------------------
         # FUTURE AQI
         # ----------------------------------------------------
+
+        aqi_values = df["AQI"]
+
+        future_input = pd.DataFrame([{
+
+            "AQI_Lag_1": current_aqi,
+
+            "AQI_Lag_2": float(
+                aqi_values.iloc[-1]
+            ),
+
+            "AQI_Lag_3": float(
+                aqi_values.iloc[-2]
+            ),
+
+            "AQI_Lag_6": float(
+                aqi_values.iloc[-6]
+            ),
+
+            "AQI_Lag_12": float(
+                aqi_values.iloc[-12]
+            ),
+
+            "AQI_Lag_24": float(
+                aqi_values.iloc[-24]
+            )
+
+        }])
 
         future_aqi = float(
             forecast_model.predict(
@@ -400,49 +364,44 @@ if predict_button:
             future_aqi
         )
 
-
-        # ----------------------------------------------------
-        # FUTURE CATEGORY
-        # ----------------------------------------------------
-
         future_category = get_category(
             future_aqi
         )
 
-
         # ----------------------------------------------------
-        # SAVE EVERYTHING
+        # SAVE RESULTS
         # ----------------------------------------------------
 
         st.session_state["current_aqi"] = current_aqi
 
-        st.session_state["current_category"] = (
-            current_category
-        )
+        st.session_state["current_category"] = current_category
 
         st.session_state["advisory"] = advisory
 
         st.session_state["future_aqi"] = future_aqi
 
-        st.session_state["future_category"] = (
-            future_category
+        st.session_state["future_category"] = future_category
+
+        # ----------------------------------------------------
+        # SAVE USER PREDICTION FOR GRAPH
+        # ----------------------------------------------------
+
+        if "prediction_history" not in st.session_state:
+
+            st.session_state["prediction_history"] = []
+
+        st.session_state["prediction_history"].append(
+            current_aqi
         )
 
-
-        # Save input values for graph
-
-        st.session_state["pm25"] = pm25
-        st.session_state["pm10"] = pm10
-        st.session_state["so2"] = so2
-        st.session_state["no2"] = no2
-        st.session_state["co"] = co
-        st.session_state["o3"] = o3
-
+        # Keep only last 10 predictions
+        st.session_state["prediction_history"] = (
+            st.session_state["prediction_history"][-10:]
+        )
 
         st.success(
-            "✅ Prediction updated successfully!"
+            "✅ AQI calculated successfully!"
         )
-
 
     except Exception as e:
 
@@ -459,10 +418,6 @@ st.header(
     f"📍 Air Quality — {location}"
 )
 
-
-# ============================================================
-# SHOW RESULTS
-# ============================================================
 
 if "current_aqi" in st.session_state:
 
@@ -519,7 +474,7 @@ if "current_aqi" in st.session_state:
 
 
     # ========================================================
-    # CATEGORY
+    # AQI RESULT
     # ========================================================
 
     st.success(
@@ -530,68 +485,61 @@ if "current_aqi" in st.session_state:
         f"📊 AQI Category: **{current_category}**"
     )
 
+    st.info(
+        f"🔮 Future AQI: **{future_aqi:.2f}** "
+        f"— **{future_category}**"
+    )
+
     st.warning(
         f"💡 Health Advisory: {advisory}"
     )
 
-    st.info(
-        f"🔮 Future AQI: **{future_aqi:.2f}** "
-        f"| Future Category: **{future_category}**"
-    )
-
-
 else:
 
     st.info(
-        "👈 Enter your environmental values "
+        "👈 Change the environmental values "
         "and click **🔮 Predict AQI**."
     )
 
 
 # ============================================================
-# CURRENT INPUT TABLE
+# CURRENT INPUT PARAMETERS
 # ============================================================
 
 st.subheader(
-    "🌫️ Current Environmental Parameters"
+    "🌫️ Current Input Parameters"
 )
-
-
-current_values = {
-
-    "PM2.5": pm25,
-
-    "PM10": pm10,
-
-    "SO2": so2,
-
-    "NO2": no2,
-
-    "CO": co,
-
-    "O3": o3,
-
-    "Temperature": temp,
-
-    "Pressure": pres,
-
-    "Dew Point": dewp,
-
-    "Rainfall": rain,
-
-    "Wind Speed": wspm
-}
 
 
 pollution_data = pd.DataFrame({
 
-    "Parameter": list(
-        current_values.keys()
-    ),
+    "Parameter": [
+        "PM2.5",
+        "PM10",
+        "SO2",
+        "NO2",
+        "CO",
+        "O3",
+        "Temperature",
+        "Pressure",
+        "Dew Point",
+        "Rainfall",
+        "Wind Speed"
+    ],
 
-    "Value": list(
-        current_values.values()
-    )
+    "Value": [
+        pm25,
+        pm10,
+        so2,
+        no2,
+        co,
+        o3,
+        temp,
+        pres,
+        dewp,
+        rain,
+        wspm
+    ]
 
 })
 
@@ -613,17 +561,11 @@ st.subheader(
 
 
 pollutants = {
-
     "PM2.5": pm25,
-
     "PM10": pm10,
-
     "SO2": so2,
-
     "NO2": no2,
-
     "CO": co,
-
     "O3": o3
 }
 
@@ -633,7 +575,7 @@ fig, ax = plt.subplots(
 )
 
 
-bars = ax.bar(
+ax.bar(
     list(pollutants.keys()),
     list(pollutants.values())
 )
@@ -648,34 +590,13 @@ ax.set_ylabel(
 )
 
 ax.set_title(
-    "User Entered Pollution Values"
+    "Current User Input Pollution Levels"
 )
-
 
 ax.grid(
     axis="y",
     alpha=0.3
 )
-
-
-# Display values on bars
-
-for bar in bars:
-
-    height = bar.get_height()
-
-    ax.text(
-        bar.get_x()
-        + bar.get_width() / 2,
-
-        height,
-
-        f"{height:.1f}",
-
-        ha="center",
-
-        va="bottom"
-    )
 
 
 st.pyplot(
@@ -685,101 +606,92 @@ st.pyplot(
 
 
 # ============================================================
-# AQI CURRENT VS FUTURE GRAPH
+# AQI PREDICTION GRAPH
 # ============================================================
 
-if "current_aqi" in st.session_state:
+st.subheader(
+    "📈 AQI Prediction Changes"
+)
 
-    st.subheader(
-        "📈 Current AQI vs Future AQI"
+
+if "prediction_history" in st.session_state:
+
+    prediction_values = (
+        st.session_state["prediction_history"]
     )
 
-
-    aqi_labels = [
-        "Current AQI",
-        "Future AQI"
-    ]
-
-
-    aqi_values = [
-
-        st.session_state[
-            "current_aqi"
-        ],
-
-        st.session_state[
-            "future_aqi"
-        ]
-
-    ]
-
+    prediction_numbers = list(
+        range(
+            1,
+            len(prediction_values) + 1
+        )
+    )
 
     fig3, ax3 = plt.subplots(
-        figsize=(10, 5)
+        figsize=(12, 5)
     )
-
 
     ax3.plot(
-        aqi_labels,
-        aqi_values,
+        prediction_numbers,
+        prediction_values,
         marker="o",
-        linewidth=3,
-        markersize=10
+        linewidth=2
     )
 
-
     ax3.set_xlabel(
-        "Prediction"
+        "Prediction Number"
     )
 
     ax3.set_ylabel(
-        "AQI"
+        "Predicted AQI"
     )
 
     ax3.set_title(
-        "Current AQI vs Future AQI"
+        "User AQI Predictions"
     )
 
-
     ax3.grid(
-        axis="y",
+        True,
         alpha=0.3
     )
 
-
-    # Display values
-
-    for i, value in enumerate(
-        aqi_values
+    # Show AQI value above each point
+    for x, y in zip(
+        prediction_numbers,
+        prediction_values
     ):
 
-        ax3.text(
-            i,
-            value,
-            f"{value:.2f}",
-            ha="center",
-            va="bottom"
+        ax3.annotate(
+            f"{y:.1f}",
+            (x, y),
+            xytext=(0, 8),
+            textcoords="offset points",
+            ha="center"
         )
-
 
     st.pyplot(
         fig3,
         clear_figure=True
     )
 
+else:
+
+    st.info(
+        "Change the values and click "
+        "**Predict AQI** to create the graph."
+    )
+
 
 # ============================================================
-# HISTORICAL AQI GRAPH
+# HISTORICAL AQI
 # ============================================================
 
 st.subheader(
-    "📈 Historical AQI Trend"
+    "📚 Historical AQI Trend"
 )
 
 
-recent_aqi = df[
-    "AQI"
-].iloc[-500:]
+recent_aqi = df["AQI"].iloc[-500:]
 
 
 fig2, ax2 = plt.subplots(
@@ -793,7 +705,7 @@ ax2.plot(
 
 
 ax2.set_xlabel(
-    "Historical Observation"
+    "Observation"
 )
 
 ax2.set_ylabel(
@@ -801,11 +713,11 @@ ax2.set_ylabel(
 )
 
 ax2.set_title(
-    "Historical AQI Trend"
+    "Historical AQI Trend from Dataset"
 )
 
-
 ax2.grid(
+    True,
     alpha=0.3
 )
 
@@ -834,7 +746,6 @@ if "future_aqi" in st.session_state:
 
         st.metric(
             "Predicted Future AQI",
-
             f"{st.session_state['future_aqi']:.2f}"
         )
 
@@ -843,18 +754,15 @@ if "future_aqi" in st.session_state:
 
         st.metric(
             "Future AQI Category",
-
             st.session_state[
                 "future_category"
             ]
         )
 
-
 else:
 
     st.info(
-        "Future AQI will appear after "
-        "clicking Predict AQI."
+        "Future AQI will appear after prediction."
     )
 
 
