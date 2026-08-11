@@ -1,7 +1,6 @@
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 
@@ -49,19 +48,14 @@ def get_category(aqi):
 
     if aqi <= 50:
         return "Good"
-
     elif aqi <= 100:
         return "Satisfactory"
-
     elif aqi <= 200:
         return "Moderate"
-
     elif aqi <= 300:
         return "Poor"
-
     elif aqi <= 400:
         return "Very Poor"
-
     else:
         return "Severe"
 
@@ -74,19 +68,14 @@ def get_advisory(aqi):
 
     if aqi <= 50:
         return "Air quality is good. Normal outdoor activities are generally safe."
-
     elif aqi <= 100:
         return "Air quality is satisfactory. Sensitive people should monitor conditions."
-
     elif aqi <= 200:
         return "Sensitive individuals should reduce prolonged outdoor exposure."
-
     elif aqi <= 300:
         return "Reduce prolonged outdoor activities."
-
     elif aqi <= 400:
         return "Avoid prolonged outdoor exposure."
-
     else:
         return "Avoid outdoor exposure as much as possible."
 
@@ -102,15 +91,15 @@ st.subheader(
 )
 
 st.write(
-    "Enter environmental conditions to predict AQI and "
-    "analyze future air quality."
+    "Enter environmental conditions below and click "
+    "**Predict AQI** to calculate the air quality."
 )
 
 st.divider()
 
 
 # ============================================================
-# SIDEBAR INPUT
+# SIDEBAR
 # ============================================================
 
 st.sidebar.header("📍 Location")
@@ -210,6 +199,7 @@ wspm = st.sidebar.number_input(
     step=0.1
 )
 
+
 # ============================================================
 # PREDICT BUTTON
 # ============================================================
@@ -222,7 +212,7 @@ predict_button = st.sidebar.button(
 
 
 # ============================================================
-# INPUT DATA
+# CREATE USER INPUT DATA
 # ============================================================
 
 input_data = pd.DataFrame(
@@ -256,7 +246,36 @@ input_data = pd.DataFrame(
 
 
 # ============================================================
-# FUTURE FORECAST
+# PREDICTION
+# ============================================================
+
+if predict_button:
+
+    try:
+
+        # Predict AQI using current user values
+        current_aqi = float(
+            model.predict(input_data)[0]
+        )
+
+        category = get_category(current_aqi)
+
+        advisory = get_advisory(current_aqi)
+
+        # Save result
+        st.session_state["current_aqi"] = current_aqi
+        st.session_state["category"] = category
+        st.session_state["advisory"] = advisory
+
+    except Exception as e:
+
+        st.error(
+            f"Prediction error: {e}"
+        )
+
+
+# ============================================================
+# FUTURE AQI FORECAST
 # ============================================================
 
 aqi = df["AQI"]
@@ -270,52 +289,26 @@ future_input = pd.DataFrame([{
     "AQI_Lag_24": aqi.iloc[-24]
 }])
 
-future_aqi = forecast_model.predict(
-    future_input
-)[0]
+future_aqi = float(
+    forecast_model.predict(future_input)[0]
+)
 
 future_category = get_category(future_aqi)
 
 
 # ============================================================
-# DEFAULT VALUES BEFORE PREDICTION
-# ============================================================
-
-if "predicted_aqi" not in st.session_state:
-    st.session_state.predicted_aqi = None
-
-
-# ============================================================
-# RUN PREDICTION
-# ============================================================
-
-if predict_button:
-
-    predicted_aqi = model.predict(input_data)[0]
-
-    st.session_state.predicted_aqi = predicted_aqi
-
-
-# ============================================================
-# DASHBOARD
+# DISPLAY RESULT
 # ============================================================
 
 st.header(
     f"📍 Air Quality — {location}"
 )
 
+if "current_aqi" in st.session_state:
 
-# ============================================================
-# SHOW RESULT
-# ============================================================
-
-if st.session_state.predicted_aqi is not None:
-
-    current_aqi = st.session_state.predicted_aqi
-
-    category = get_category(current_aqi)
-
-    advisory = get_advisory(current_aqi)
+    current_aqi = st.session_state["current_aqi"]
+    category = st.session_state["category"]
+    advisory = st.session_state["advisory"]
 
     col1, col2, col3 = st.columns(3)
 
@@ -337,6 +330,10 @@ if st.session_state.predicted_aqi is not None:
             f"{future_aqi:.2f}"
         )
 
+    st.success(
+        f"✅ Predicted AQI: {current_aqi:.2f}"
+    )
+
     st.info(
         f"💡 Health Advisory: {advisory}"
     )
@@ -344,16 +341,16 @@ if st.session_state.predicted_aqi is not None:
 else:
 
     st.info(
-        "👈 Enter or change the environmental values "
-        "and click **🔮 Predict AQI** to get the prediction."
+        "👈 Enter your environmental values and "
+        "click **🔮 Predict AQI**."
     )
 
 
 # ============================================================
-# POLLUTION TABLE
+# INPUT TABLE
 # ============================================================
 
-st.subheader("🌫️ Environmental Parameters")
+st.subheader("🌫️ Current Input Parameters")
 
 pollution_data = pd.DataFrame({
 
@@ -384,7 +381,6 @@ pollution_data = pd.DataFrame({
         rain,
         wspm
     ]
-
 })
 
 st.dataframe(
@@ -458,7 +454,7 @@ st.pyplot(fig2)
 
 
 # ============================================================
-# FUTURE AQI
+# FUTURE FORECAST
 # ============================================================
 
 st.subheader("🔮 Future AQI Forecast")
@@ -510,4 +506,5 @@ st.write(
 st.caption(
     "AI-Based Air Quality Prediction and Forecasting System"
 )
+```
 
