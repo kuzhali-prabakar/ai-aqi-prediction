@@ -21,7 +21,7 @@ def load_models():
 # Load dataset
 @st.cache_data
 def load_data():
-    df = pd.read_csv("data/AQI_ML_Dataset.csv")
+    df = pd.read_csv("AQI_ML_Dataset.csv")
     df["AQI"] = df["AQI"].fillna(df["AQI"].median())
     return df
 
