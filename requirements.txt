@@ -1,1 +1,6 @@
-c3RyZWFtbGl0CnBhbmRhcwpudW1weQptYXRwbG90bGliCnNjaWtpdC1sZWFybgpqb2JsaWI=
+streamlit==1.48.0
+pandas==2.2.3
+numpy==2.0.2
+matplotlib==3.9.2
+scikit-learn==1.5.2
+joblib==1.4.2
